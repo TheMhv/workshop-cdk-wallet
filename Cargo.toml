@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.102"
+cdk = { version = "0.16.0", features = ["wallet"] }
+cdk-common = "0.16.0"
+cdk-sqlite = { version = "0.16.0", features = ["wallet"] }
+rand = "0.10.1"
+tokio = { version = "1.52.3", features = ["full"] }
