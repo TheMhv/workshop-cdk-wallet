@@ -1,69 +1,69 @@
-use cdk::mint_url::MintUrl;
-use cdk_common::MintInfo;
+use cdk::wallet::{MeltQuote, MintQuote, Wallet};
+use cdk_common::{Amount, CurrencyUnit, MintInfo, Proofs, Token};
+use cdk_sqlite::{WalletSqliteDatabase, wallet::memory};
+use rand::{RngExt, random, rng};
 
-use std::str::FromStr;
-use std::sync::Arc;
-
-use cdk::nuts::CurrencyUnit;
-use cdk::wallet::{HttpClient, MintConnector, Wallet};
-use cdk_sqlite::wallet::memory;
-
-let mint_url = "http://127.0.0.1:8085/";
-
-// Mint Info
-async fn mint_info() -> anyhow::Result<MintInfo> {
-    println!("Trying to fetch the Mint Info");
-
-    println!("Mint url: {}", mint_url);
-
-    let client = HttpClient::new(MintUrl::from_str(mint_url)?, None);
-
-    let mint_info = client.get_mint_info().await?;
-
-    Ok(mint_info)
+async fn mint_info(mint_url: &str) -> anyhow::Result<MintInfo> {
+    todo!("Get mint info");
 }
 
-// Mint Quote
-async fn mint_quote() -> anyhow::Result<()> {
-    todo!("Implement the Mint Quote request")
+async fn create_wallet(
+    mint_url: &str,
+    unit: CurrencyUnit,
+    database: WalletSqliteDatabase,
+    seed: [u8; 64],
+) -> anyhow::Result<Wallet> {
+    todo!("create the wallet");
 }
 
-// Mint
-async fn mint_tokens() -> anyhow::Result<()> {
-    todo!("Implement the Mint request")
+async fn mint_quote(mint_info: &MintInfo, wallet: &Wallet) -> anyhow::Result<MintQuote> {
+    todo!("Create and get mint quote");
 }
 
-// Melt Quote
-async fn melt_quote() -> anyhow::Result<()> {
-    todo!("Implement the melt quote request")
+async fn pay_mint_quote(wallet: &Wallet, quote: &MintQuote) -> anyhow::Result<()> {
+    todo!("Pay mint quote request");
 }
 
-// Melt
-async fn melt_tokens() -> anyhow::Result<()> {
-    todo!("Implement the melt request")
+async fn mint_tokens(wallet: &Wallet, quote: &MintQuote) -> anyhow::Result<Proofs> {
+    todo!("Mint tokens")
+}
+
+async fn create_token(wallet: &Wallet, amount: u64) -> anyhow::Result<Token> {
+    todo!("Create token to send to another user")
+}
+
+async fn melt_quote(
+    wallet: &Wallet,
+    mint_info: MintInfo,
+    receive_invoice: &str,
+) -> anyhow::Result<MeltQuote> {
+    todo!("Create and get melt quote");
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("First CDK Wallet");
+    let mint_url: &str = "http://server:8085";
 
-    let mint_info = mint_info().await?;
-    println!("Mint info: {}", serde_json::to_string_pretty(&mint_info)?);
+    // Get mint info
+    let mint_info: MintInfo = mint_info(mint_url).await?;
 
-    let seed: [u8; 64] = rand::random();
+    // Setup the wallet
+    let walletdb: WalletSqliteDatabase = memory::empty().await?;
+    let seed: [u8; 64] = random();
+    let wallet: Wallet = create_wallet(mint_url, CurrencyUnit::Sat, walletdb, seed).await?;
 
-    let mint_url = "http://127.0.0.1:8085/";
-    println!("Mint url: {}", mint_url);
+    // Minting tokens
+    let quote: MintQuote = mint_quote(&mint_info, &wallet).await?;
+    pay_mint_quote(&wallet, &quote).await.ok();
+    let proofs: Proofs = mint_tokens(&wallet, &quote).await?;
 
-    let unit = CurrencyUnit::Sat;
-    println!("Currency: {}", unit);
+    // Creating tokens
+    let balance: Amount = wallet.total_balance().await?;
+    let amount = rng().random_range(..(balance.to_u64() / 4));
+    let token: Token = create_token(&wallet, amount).await?;
+    // send token to another user
 
-    let localstore = Arc::new(memory::empty().await?);
-
-    let wallet = Wallet::new(mint_url, unit, localstore, seed, None)?;
-
-    let balance = wallet.total_balance().await?;
-    println!("Total wallet balance: {}", balance);
-
-    Ok(())
+    // Melting tokens
+    let melt_quote: MeltQuote = melt_quote(&wallet, mint_info, "TODO: IMPLEMENT").await?;
+    todo!("Tokens to melt and wait until payment");
 }
