@@ -8,5 +8,7 @@ anyhow = "1.0.102"
 cdk = { version = "0.16.0", features = ["wallet"] }
 cdk-common = "0.16.0"
 cdk-sqlite = { version = "0.16.0", features = ["wallet"] }
+dotenv = "0.15.0"
+lnd_grpc_rust = "2.16.0"
 rand = "0.10.1"
 tokio = { version = "1.52.3", features = ["full"] }
