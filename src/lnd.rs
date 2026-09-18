@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::{Ok, anyhow};
 use cdk_common::util::hex;
 use lnd_grpc_rust::{
@@ -13,19 +11,18 @@ pub struct LND {
 }
 
 impl LND {
-    pub async fn new() -> anyhow::Result<Self> {
-        let macaroon_path =
-            env::var("LND_MACAROON_PATH").expect("Unable to find LND macaroon file");
-        let cert_path = env::var("LND_CERT_PATH").expect("Unable to find LND cert file");
-
-        let macaroon = fs::read(macaroon_path.clone())
+    pub async fn new(
+        macaroon_path: String,
+        cert_path: String,
+        lnd_url: String,
+    ) -> anyhow::Result<Self> {
+        let macaroon = fs::read(macaroon_path)
             .await
             .expect("LND macaroon file doesn't exists");
-        let cert = fs::read(cert_path.clone())
+
+        let cert = fs::read(cert_path)
             .await
             .expect("LND cert file doesn't exists");
-
-        let lnd_url = env::var("LND_URL").unwrap_or("https://localhost:10009".to_string());
 
         Ok(Self {
             inner: lnd_grpc_rust::connect(hex::encode(cert), hex::encode(macaroon), lnd_url)
