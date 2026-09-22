@@ -1,16 +1,22 @@
-use std::{env, str::FromStr};
+use std::{collections::HashMap, env, str::FromStr, sync::Arc};
 
-use cdk::wallet::{MeltQuote, MintQuote, Wallet};
-use cdk_common::{Amount, CurrencyUnit, FinalizedMelt, MintInfo, Proofs, Token, mint_url::MintUrl};
+use anyhow::Ok;
+use cdk::wallet::{
+    HttpClient, MeltQuote, MintConnector, MintQuote, ReceiveOptions, SendOptions, Wallet,
+};
+use cdk_common::{
+    Amount, CurrencyUnit, FinalizedMelt, MintInfo, Proofs, Token, amount::SplitTarget,
+    mint_url::MintUrl,
+};
 use cdk_sqlite::WalletSqliteDatabase;
 
 mod cli;
 
 async fn mint_info(mint_url: &MintUrl) -> anyhow::Result<MintInfo> {
-    // 1. Build an HTTP client pointing at the mint URL.
-    // 2. Request the mint's info endpoint (GET /v1/info).
-    // 3. Return the parsed MintInfo (name, supported NUTs, limits, etc.).
-    todo!("Implement a function to get the mint info");
+    let client = HttpClient::new(mint_url.clone(), None);
+    let mint_info = client.get_mint_info().await?;
+
+    Ok(mint_info)
 }
 
 async fn create_wallet(
@@ -19,18 +25,15 @@ async fn create_wallet(
     database: WalletSqliteDatabase,
     seed: [u8; 64],
 ) -> anyhow::Result<Wallet> {
-    // 1. Wrap the database in an Arc so the wallet can share it.
-    // 2. Build the Wallet from the mint URL, unit, database and seed.
-    // 3. Handle any construction error and return the Wallet.
-    todo!(
-        "Implement a function to create a new Wallet specifying the mint, the unit, the database that will be used and a seed"
-    );
+    let wallet = Wallet::new(&mint_url.to_string(), unit, Arc::new(database), seed, None)?;
+
+    Ok(wallet)
 }
 
 async fn get_balance(wallet: &Wallet) -> anyhow::Result<Amount> {
-    // 1. Ask the wallet for the total of its unspent proofs.
-    // 2. Return the resulting Amount.
-    todo!("Implement a function to get the current balance of the Wallet");
+    let balance = wallet.total_balance().await?;
+
+    Ok(balance)
 }
 
 async fn mint_quote(
@@ -38,42 +41,43 @@ async fn mint_quote(
     wallet: &Wallet,
     amount: Amount,
 ) -> anyhow::Result<MintQuote> {
-    // 1. Check in mint_info that minting is enabled for the wallet's unit and payment method.
-    // 2. Check the amount is within the mint's min/max limits.
-    // 3. Request a mint quote from the wallet for the given amount.
-    // 4. Return the quote.
-    todo!("Implement a function to create a Mint Quote from Wallet specifying the amount");
+    let payment_method = mint_info.nuts.nut04.methods.first().unwrap().method.clone();
+
+    let quote = wallet
+        .mint_quote(payment_method, Some(amount), None, None)
+        .await?;
+
+    Ok(quote)
 }
 
 async fn get_mint_quote(wallet: &Wallet, quote_id: &str) -> anyhow::Result<MintQuote> {
-    // 1. Look up the quote by its id.
-    // 2. Return an error if the quote does not exist.
-    // 3. Return the up-to-date MintQuote.
-    todo!("Implement a function to get a Mint Quote from Wallet from quote id");
+    let quote = wallet.check_mint_quote(quote_id).await?;
+
+    Ok(quote)
 }
 
 async fn mint_tokens(wallet: &Wallet, quote_id: &str) -> anyhow::Result<Proofs> {
-    // 1. Fetch the quote and verify its invoice has been paid.
-    // 2. Ask the wallet to mint the proofs for that quote.
-    // 3. Return the newly minted Proofs.
-    todo!("Implement a function to mint tokens from Mint Quote by quote id");
+    let proofs = wallet.mint(quote_id, SplitTarget::None, None).await?;
+
+    Ok(proofs)
 }
 
 async fn create_token(wallet: &Wallet, amount: Amount) -> anyhow::Result<Token> {
-    // 1. Check the wallet balance is enough for the requested amount.
-    // 2. Prepare a send: select proofs.
-    // 3. Confirm the send to obtain the Token.
-    // 4. Return the Token.
-    todo!("Implement a function to create a token from Wallet");
+    let token = wallet
+        .prepare_send(amount, SendOptions::default())
+        .await?
+        .confirm(None)
+        .await?;
+
+    Ok(token)
 }
 
-async fn receive_token(wallet: &Wallet, token: String) -> anyhow::Result<Amount> {
-    // 1. Decode the token string into a mint URL + encoded proofs.
-    // 2. Refuse tokens for a different mint or unit.
-    // 3. Resolve the encoded proofs into full Proof objects.
-    // 4. Ask the mint whether these proofs are still spendable.
-    // 5. Perform a swap operation
-    todo!("Implement a function to redeem a token for Wallet");
+async fn receive_token(wallet: &Wallet, token: &Token) -> anyhow::Result<Amount> {
+    let amount = wallet
+        .receive(&token.to_string(), ReceiveOptions::default())
+        .await?;
+
+    Ok(amount)
 }
 
 async fn melt_quote(
@@ -81,29 +85,28 @@ async fn melt_quote(
     mint_info: MintInfo,
     receive_invoice: &str,
 ) -> anyhow::Result<MeltQuote> {
-    // 1. Parse and validate the payment request.
-    // 2. Check in mint_info that melting is enabled for the wallet's unit and this payment method.
-    // 3. Request a melt quote from the wallet for the invoice.
-    // 4. Return the quote.
-    todo!(
-        "Implement a function to create a Melt Quote from Wallet using a payment request that Mint accepts"
-    );
+    let method = mint_info.nuts.nut05.methods.first().unwrap().method.clone();
+    let quote = wallet
+        .melt_quote(method, receive_invoice, None, None)
+        .await?;
+
+    Ok(quote)
 }
 
 async fn get_melt_quote(wallet: &Wallet, quote_id: &str) -> anyhow::Result<MeltQuote> {
-    // 1. Look up the quote by its id.
-    // 2. Return an error if the quote does not exist.
-    // 3. Return the up-to-date MeltQuote.
-    todo!("Implement a function to get a Melt Quote from Wallet with quote id");
+    let quote = wallet.check_melt_quote_status(quote_id).await?;
+
+    Ok(quote)
 }
 
 async fn melt(wallet: &Wallet, quote_id: &str) -> anyhow::Result<FinalizedMelt> {
-    // 1. Fetch the quote and verify it is still unpaid.
-    // 2. Check the wallet balance covers the amount plus the fee reserve.
-    // 3. Ask the wallet to melt: it selects proofs and sends them to the mint.
-    // 4. The mint pays the invoice and returns any change for unused fee reserve.
-    // 5. Return the FinalizedMelt.
-    todo!("Implement a function to melt the Melt Quote from Wallet with quote id");
+    let melt = wallet
+        .prepare_melt(quote_id, HashMap::new())
+        .await?
+        .confirm()
+        .await?;
+
+    Ok(melt)
 }
 
 #[tokio::main]

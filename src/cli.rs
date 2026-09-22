@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use cdk::wallet::Wallet;
+use cdk_common::Token;
 use cdk_common::{Amount, CurrencyUnit, mint_url::MintUrl};
 use cdk_sqlite::WalletSqliteDatabase;
 use clap::{Parser, Subcommand};
@@ -174,7 +177,8 @@ pub async fn cli(mint_url: MintUrl) -> anyhow::Result<()> {
 
         Commands::ReceiveToken { token } => {
             let wallet = wallet(&mint_url, args.wallet).await?;
-            let amount = receive_token(&wallet, token).await?;
+            let token = Token::from_str(&token)?;
+            let amount = receive_token(&wallet, &token).await?;
 
             println!(
                 "{}",
