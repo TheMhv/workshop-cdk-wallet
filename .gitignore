@@ -1,2 +1,10 @@
 .env
 /target
+*.macaroon
+**/*.macaroon
+**/*.seed
+*.seed
+**/*.sqlite
+*.sqlite
+**/*.cert
+*.cert

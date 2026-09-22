@@ -29,7 +29,6 @@
         {
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
-              protobuf
               openssl
               pkg-config
             ];
